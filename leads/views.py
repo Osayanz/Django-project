@@ -1,5 +1,6 @@
 from django.core.mail import send_mail
 from django.shortcuts import render, redirect, reverse
+from django.contrib.auth.mixins import LoginRequiredMixin
 from django.http import HttpResponse
 from django.views import generic
 from .models import Lead, Agent
@@ -24,7 +25,7 @@ def landing_page(request):
     return render(request, "landing.html")
 
 # List view for leads using class-based view
-class LeadListView(generic.ListView):
+class LeadListView(LoginRequiredMixin, generic.ListView):
     trmplate_name = "leads/lead_list.html"
     queryset = Lead.objects.all()
     context_object_name = "leads"
@@ -38,7 +39,7 @@ def lead_list(request):
     return render(request, "leads/lead_list.html", context)
 
 # Detail view for a single lead using class-based view
-class LeadDetailView(generic.DetailView):
+class LeadDetailView(LoginRequiredMixin, generic.DetailView):
     trmplate_name = "leads/lead_detail.html"
     queryset = Lead.objects.all()
     context_object_name = "lead"
@@ -52,7 +53,7 @@ def lead_detail(request, pk):
     return render(request, "leads/lead_detail.html", context)
 
 # Create view for a new lead using class-based view
-class LeadCreateView(generic.CreateView):
+class LeadCreateView(LoginRequiredMixin, generic.CreateView):
     template_name = "leads/lead_create.html"
     form_class = LeadModelForm
     
@@ -93,7 +94,7 @@ def lead_create(request):
     return render(request, "leads/lead_create.html", context)
 
 # Update view for a lead using class-based view
-class LeadUpdateView(generic.UpdateView):
+class LeadUpdateView(LoginRequiredMixin, generic.UpdateView):
     template_name = "leads/lead_update.html"
     queryset = Lead.objects.all()
     form_class = LeadModelForm
@@ -117,7 +118,7 @@ def lead_update(request, pk):
     return render(request, "leads/lead_update.html", context)
 
 # Delete view for a lead using class-based view
-class LeadDeleteView(generic.DeleteView):
+class LeadDeleteView(LoginRequiredMixin, generic.DeleteView):
     template_name = "leads/lead_delete.html"
     queryset = Lead.objects.all()
 
