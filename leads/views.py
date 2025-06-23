@@ -3,8 +3,9 @@ from django.shortcuts import render, redirect, reverse
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.http import HttpResponse
 from django.views import generic
+from agents.mixins import OrganisorAndLoginRequiredMixin
 from .models import Lead, Agent
-from .forms import LeadForm, LeadModelForm, CustomUserCreationForm
+from .forms import LeadForm, LeadModelForm, CustomUserCreationForm, AssignAgentForm
 
 class SignUpView(generic.CreateView):
     template_name = "registration/signup.html"
@@ -25,10 +26,70 @@ def landing_page(request):
     return render(request, "landing.html")
 
 # List view for leads using class-based view
+
 class LeadListView(LoginRequiredMixin, generic.ListView):
-    trmplate_name = "leads/lead_list.html"
-    queryset = Lead.objects.all()
+    template_name = "leads/lead_list.html"
     context_object_name = "leads"
+
+    def get_queryset(self):
+        user = self.request.user
+        if user.is_organisor:
+            # ✅ Show only assigned leads
+            return Lead.objects.filter(
+                organisation=user.userprofile,
+                agent__isnull=False
+            )
+        else:
+            return Lead.objects.filter(
+                organisation=user.agent.organisation,
+                agent__user=user
+            )
+
+    def get_context_data(self, **kwargs):
+        context = super(LeadListView, self).get_context_data(**kwargs)
+        user = self.request.user
+        if user.is_organisor:
+            # ✅ Unassigned leads only shown here
+            unassigned_leads = Lead.objects.filter(
+                organisation=user.userprofile,
+                agent__isnull=True
+            )
+            context["unassigned_leads"] = unassigned_leads
+        return context
+
+'''class LeadListView(LoginRequiredMixin, generic.ListView):
+    trmplate_name = "leads/lead_list.html"
+    context_object_name = "leads"
+
+    def get_queryset(self):
+        user = self.request.user
+        # Check if the user is an organizer or an agent
+        if user.is_organisor:
+            queryset = Lead.objects.filter(
+                organisation=user.userprofile,
+                agent__isnull=True
+            )
+        else:
+            queryset = Lead.objects.filter(
+                organisation=user.agent.organisation,
+                agent__isnull=True
+            )
+            # filter for the agents that logged in
+            queryset = queryset.filter(agent__user=user)
+        return queryset
+    
+    def get_context_data(self, **kwargs):
+        context = super(LeadListView, self).get_context_data(**kwargs)
+        user = self.request.user
+        if user.is_organisor:
+            queryset = Lead.objects.filter(
+                organisation=user.userprofile,
+                agent__isnull=True
+            )
+            context.update({
+                "unassigned_leads" : queryset
+            })
+        return context'''
 
 # List view for leads using function-based view
 def lead_list(request):
@@ -41,8 +102,18 @@ def lead_list(request):
 # Detail view for a single lead using class-based view
 class LeadDetailView(LoginRequiredMixin, generic.DetailView):
     trmplate_name = "leads/lead_detail.html"
-    queryset = Lead.objects.all()
     context_object_name = "lead"
+
+    def get_queryset(self):
+        user = self.request.user
+        # Check if the user is an organizer or an agent
+        if user.is_organisor:
+            queryset = Lead.objects.filter(organisation=user.userprofile)
+        else:
+            queryset = Lead.objects.filter(organisation=user.agent.organisation)
+            # filter for the agents that logged in
+            queryset = queryset.filter(agent__user=user)
+        return queryset
 
 # Detail view for a single lead using function-based view
 def lead_detail(request, pk):
@@ -53,7 +124,7 @@ def lead_detail(request, pk):
     return render(request, "leads/lead_detail.html", context)
 
 # Create view for a new lead using class-based view
-class LeadCreateView(LoginRequiredMixin, generic.CreateView):
+class LeadCreateView(OrganisorAndLoginRequiredMixin, generic.CreateView):
     template_name = "leads/lead_create.html"
     form_class = LeadModelForm
     
@@ -62,6 +133,10 @@ class LeadCreateView(LoginRequiredMixin, generic.CreateView):
     
     def form_valid(self, form):
         # TODO send email
+        lead = form.save(commit=False)
+        lead.organisation = self.request.user.userprofile  # ✅ Set the organisation
+        lead.save()
+        
         send_mail(
             subject="A lead has been created",
             message="Go to the site to view the new lead",
@@ -94,10 +169,14 @@ def lead_create(request):
     return render(request, "leads/lead_create.html", context)
 
 # Update view for a lead using class-based view
-class LeadUpdateView(LoginRequiredMixin, generic.UpdateView):
+class LeadUpdateView(OrganisorAndLoginRequiredMixin, generic.UpdateView):
     template_name = "leads/lead_update.html"
-    queryset = Lead.objects.all()
     form_class = LeadModelForm
+
+    def get_queryset(self):
+        user = self.request.user
+        # initial queryset for the entire organisation  
+        return Lead.objects.filter(organisation=user.userprofile)
 
     def get_success_url(self):
         return reverse("leads:lead-list")
@@ -118,18 +197,45 @@ def lead_update(request, pk):
     return render(request, "leads/lead_update.html", context)
 
 # Delete view for a lead using class-based view
-class LeadDeleteView(LoginRequiredMixin, generic.DeleteView):
+class LeadDeleteView(OrganisorAndLoginRequiredMixin, generic.DeleteView):
     template_name = "leads/lead_delete.html"
     queryset = Lead.objects.all()
 
     def get_success_url(self):
         return reverse("leads:lead-list")
 
+    def get_queryset(self):
+        user = self.request.user
+        # initial queryset for the entire organisation  
+        return Lead.objects.filter(organisation=user.userprofile)
+
 # Delete view for a lead using function-based view
 def lead_delete(request, pk):
     lead = Lead.objects.get(id=pk)
     lead.delete()
     return redirect("/leads")
+
+class AssignAgentView(OrganisorAndLoginRequiredMixin, generic.FormView):
+    template_name = "leads/assign_agent.html"
+    form_class = AssignAgentForm
+
+    def get_form_kwargs(self, **kwargs):
+        kwargs = super(AssignAgentView, self).get_form_kwargs(**kwargs)
+        kwargs.update({
+            "request": self.request
+        })
+        return kwargs
+
+    def get_success_url(self):
+        return reverse("leads:lead-list")
+    
+    def form_valid(self, form):
+        agent = form.cleaned_data['agent']
+        lead = Lead.objects.get(id=self.kwargs["pk"])
+        lead.agent = agent
+        lead.save()
+        return super(AssignAgentView, self).form_valid(form)
+
 
 
 # Uncomment the following code if you want to use the non-model form version
