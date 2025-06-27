@@ -16,7 +16,7 @@
                 </div>
                 {% endif %}
             </div>
-            <div class="flex-wrap -m-4">
+            <div class="flex flex-wrap -m-4">
                 {% for lead in leads %}
                     <div class="p-4 lg:w-1/2 md:w-full">
                         <div class="flex border-2 rounded-lg border-gray-200 border-opacity-50 p-8 sm:flex-row flex-col">
@@ -42,11 +42,9 @@
                         </div>
                     </div>
                 {% endfor %}
-            </div>
-            
-            {% if unassigned_leads.exists %}
-                <div class="mt-5 flex-wrap -m-4"></div>
-                    <div class="p-4 w-full">
+
+                {% if unassigned_leads.exists %}
+                    <div class="w-full p-4">
                         <h1 class="text-4xl gray-800">Unassigned Leads</h1>
                     </div>
                     {% for lead in unassigned_leads %}
@@ -74,8 +72,8 @@
                         </div>
                     </div>
                     {% endfor %}
-                </div>
-            {% endif %}
+                {% endif %}
+            </div>
         </div>
     </section>
 
