@@ -2,13 +2,19 @@
 
 {% block content %}
 
-    <a href="{% url 'leads:lead-list' %}">go back to leads</a>
-    <hr/>
-    <h1>Are you sure you want to delete this lead?</h1>
-    <form method="post">
-        {% csrf_token %}
-        {{ form.as_p }}
-        <button type="submit">Submit</button>
-    </form>    
+    <div class="max-w-lg mx-auto">
+        <div class="py-5 border-b border-gray-200">
+            <a href="{% url 'leads:lead-list' %}">go back to leads</a>
+        </div>
+        <div class="py-5 border-t border-gray-200">
+            <h1 class="text-3xl text-gray-800">Are you sure you want to delete this lead?</h1>
+        </div>
+        
+        <form method="post" class="mt-5">
+            {% csrf_token %}
+            {{ form.as_p }}
+            <button type="submit" class="w-full text-white bg-blue-500 hover:bg-blue-600 px-3 py-2 rounded-md">Submit</button>
+        </form>    
+    </div>
     
 {% endblock content %}
